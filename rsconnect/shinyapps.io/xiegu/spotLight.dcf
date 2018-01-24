@@ -1,0 +1,12 @@
+name: spotLight
+title: spotLight
+username:
+account: xiegu
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 260163
+bundleId: 1190276
+url: https://xiegu.shinyapps.io/spotLight/
+when: 1516783514.29626
+asMultiple: FALSE
+asStatic: FALSE
