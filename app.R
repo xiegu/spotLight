@@ -4,6 +4,7 @@ library(leaflet.extras)
 library(dplyr)
 library(shiny)
 library(shinyWidgets)
+library(shinyjs)
 
 load('data/haierTable.RData')
 
@@ -19,11 +20,11 @@ ui <- navbarPage(title = 'Spotlight',
                               ),
                               leafletOutput('SpotMap', width = '100%', height = '100%'),
                               absolutePanel(id = "controls", class = "panel panel-default",
-                                         draggable = TRUE, top = 60, left = "auto", right = 20, bottom = "auto",
+                                         draggable = TRUE, top = 50, left = "auto", right = 20, bottom = "auto",
                                          width = 250, height = "auto", cursor = "default",
                                          h3("Spot explorer"),
                                          br(),
-                                         selectInput('Province', 'Province', choices = '山东省'),
+                                         selectInput('Province', 'Province', choices = c('山东省', '河南省')),
                                          selectInput('City', 'City', choices = names(cityCode), selected = names(cityCode)[1]),
                                          selectInput('District', 'District', choices = filter(adCodeSet, city == names(cityCode)[1])%>%pull(district)),
                                          selectInput('Indicator', 'Indicator', choices = c('Traffic' = 'traffic',
@@ -32,14 +33,20 @@ ui <- navbarPage(title = 'Spotlight',
                                                                                            'Finance' = 'finance',
                                                                                            'Residence' = 'residence',
                                                                                            'Hot point' = 'score'), selected = 'score'),
-                                         br(),
+                                         useShinyjs(),
+                                         awesomeRadio('SpotType', 
+                                                      label = "Spot type", choices = c("Balance",
+                                                                                       'Competitor',
+                                                                                       'Community',
+                                                                                       'Market'), selected = "Balance", checkbox = TRUE),
                                          switchInput(
                                            'Level',
-                                           label = 'Spot',
+                                           label = 'Spot level',
                                            offLabel = 'Low',
                                            onLabel = 'High',
-                                           value = TRUE
-                                         ),
+                                           value = TRUE,
+                                           labelWidth = '100px'
+                                           ),
                                          br(),
                                          sliderInput(
                                            'ScoreScope',
@@ -59,7 +66,10 @@ ui <- navbarPage(title = 'Spotlight',
 
 server <- function(input, output, session){
   observe({
-    city <- input$City
+    updateSelectInput(session, 'City', label = 'City', choices = filter(adCodeSet, province == input$Province) %>% pull(city) %>% unique)
+  })
+  
+  observe({
       updateSelectInput(session, 'District', label = 'District', choices = filter(adCodeSet, city == input$City) %>% pull(district))
   })
   
@@ -71,18 +81,32 @@ server <- function(input, output, session){
   
   heat <- reactive({
     poiDistrict <- poi()%>%lapply(., function(x) filter(x, city == input$City & district == input$District) %>% ungroup %>% select(lng2, lat2, n))
-    return(heat_builder(poiDistrict, input$Level))
+    return(heat_builder(poiDistrict, input$Level, input$SpotType))
+  })
+  
+  haierCity <- reactive({
+    return(filter(haierTable, city == input$City))
+  })
+ 
+  scoreCheck <- reactive({
+    return(ifelse(input$Indicator == 'score', TRUE, FALSE))
+  })
+  
+  observe({
+    toggle('SpotType', condition = scoreCheck(), anim = TRUE, time = 0.2)
   })
   
   output$SpotMap <- renderLeaflet({
-    baseData <- filter(haierTable, city == input$City)
+    baseData <- haierCity()
     baseMap <- leaflet() %>% amap(group = "Normal") %>%
       addProviderTiles(providers$CartoDB.DarkMatter, group = "Dark") %>%
-      addMarkers(data = baseData, ~longitude, ~latitude,
-                 popup = paste0("<strong>Name: </strong>", 
-                                baseData$name
+      addAwesomeMarkers(data = baseData, ~longitude, ~latitude,
+                 label = ~name,
+                 labelOptions = labelOptions(style = list("font-weight" = "normal", "font-size" = "15px")),
+                 icon = awesomeIcons(
+                   icon = "shopping-cart", library = "fa", markerColor = "darkblue",
+                   iconColor = 'gold'
                  ),
-                 icon = makeIcon("https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png", iconWidth = 20, iconHeight =32),
                  group = '海尔专卖店'
       ) %>%
       addLayersControl(

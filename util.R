@@ -5,7 +5,8 @@ library(leaflet.extras)
 library(scales)
 library(sp)
 
-cityCode <- list('青岛市'='370200'
+cityCode <- list('青岛市'='370200',
+                 '焦作市'='410800'
                  )
 
 mapInfo <- function(city){
@@ -21,7 +22,10 @@ adCodeSet <- lapply(unlist(cityCode), function(x) read_csv(paste0("data/", x, ".
               select(province, city, district) %>% unique) %>% do.call(rbind, .)
 
 # 2017.10.30 即墨市升级为即墨区，仍旧按照网格命名规则
-adCodeSet <- mutate(adCodeSet, district = ifelse(district == '即墨区', '即墨市', district)) %>% unique
+# 2015.11，撤销密云县，设立密云区, 仍旧按照网格命名规则
+# 2015.11，撤销延庆县，设立延庆区, 仍旧按照网格命名规则
+adCodeSet <- mutate(adCodeSet, district = ifelse(district == '即墨区', '即墨市', ifelse(district == '密云区', '密云县', ifelse(district == '延庆区', '延庆县', district)))) %>% unique
+
 
 poi_extractor <- function(cityCode, high_level = TRUE){
   if(high_level){
@@ -32,7 +36,8 @@ poi_extractor <- function(cityCode, high_level = TRUE){
   data <- read_csv(paste0("data/", cityCode, ".csv"), col_types = cols(type = col_character(), lat = col_double(), lng = col_double())) %>% mutate(., lng2 = round(lng,level), lat2 = round(lat, level))
   
   # 2017.10.30 即墨市升级为即墨区，仍旧按照网格命名规则
-  data <- mutate(data, district = ifelse(district == '即墨区', '即墨市', district))
+  # 2015.11，撤销密云县，设立密云区, 仍旧按照网格命名规则
+  data <- mutate(data, district = ifelse(district == '即墨区', '即墨市', ifelse(district == '密云区', '密云县',  ifelse(district == '延庆区', '延庆县', district))))
   
   bus <- filter(data, grepl("1507[0-9]*", type))
   parking <- filter(data, grepl("1509[0-9]*", type))
@@ -43,11 +48,12 @@ poi_extractor <- function(cityCode, high_level = TRUE){
   mall <- filter(data, grepl("0601[0-9]*",type))
   metro <- filter(data, grepl("150501", type))
   
-  traffic <- bind_rows(bus, parking, metro) %>% select(., province, city, district, lng2, lat2) %>% group_by(province, city, district, lng2, lat2) %>% count %>% filter(!is.na(lng2))
-  business <- bind_rows(mart, mall) %>% select(., province, city, district, lng2, lat2) %>% group_by(province, city, district, lng2, lat2) %>% count %>% filter(!is.na(lng2))
-  competition <- bind_rows(emart) %>% select(., province, city, district, lng2, lat2) %>% group_by(province, city, district, lng2, lat2) %>% count %>% filter(!is.na(lng2))
-  finance <- bind_rows(bank) %>% select(., province, city, district, lng2, lat2) %>% group_by(province, city, district, lng2, lat2) %>% count %>% filter(!is.na(lng2))
-  residence <- bind_rows(residence) %>% select(., province, city, district, lng2, lat2) %>% group_by(province, city, district, lng2, lat2) %>% count %>% filter(!is.na(lng2))
+  # 5-dimension factors
+  traffic <- bind_rows(bus, parking, metro) %>% select(., province, city, district, lng2, lat2) %>% group_by(province, city, district, lng2, lat2) %>% count %>% filter(!is.na(lng2)&!is.na(lat2))
+  business <- bind_rows(mart, mall) %>% select(., province, city, district, lng2, lat2) %>% group_by(province, city, district, lng2, lat2) %>% count %>% filter(!is.na(lng2)&!is.na(lat2))
+  competition <- bind_rows(emart) %>% select(., province, city, district, lng2, lat2) %>% group_by(province, city, district, lng2, lat2) %>% count %>% filter(!is.na(lng2)&!is.na(lat2))
+  finance <- bind_rows(bank) %>% select(., province, city, district, lng2, lat2) %>% group_by(province, city, district, lng2, lat2) %>% count %>% filter(!is.na(lng2)&!is.na(lat2))
+  residence <- bind_rows(residence) %>% select(., province, city, district, lng2, lat2) %>% group_by(province, city, district, lng2, lat2) %>% count %>% filter(!is.na(lng2)&!is.na(lat2))
   
   poi <- list(traffic = traffic,
               business = business,
@@ -58,25 +64,43 @@ poi_extractor <- function(cityCode, high_level = TRUE){
   return(poi)
 }
 
-heat_builder <- function(poi = list(), high_level = TRUE){
+heat_builder <- function(poi = list(), high_level = TRUE, type = c('Balance', 'Competitor', 'Community', 'Market')){
   traffic <- poi[['traffic']]
   business <- poi[['business']]
   competition <- poi[['competition']]
   finance <- poi[['finance']]
   residence <- poi[['residence']]
   
+  if(type == 'Balance'){
   score <- inner_join(traffic, business, by = c('lng2' = 'lng2', 'lat2' = 'lat2')) %>%
     inner_join(competition, by = c('lng2' = 'lng2', 'lat2' = 'lat2')) %>%
     #inner_join(finance, by = c('lng2' = 'lng2', 'lat2' = 'lat2')) %>%
     inner_join(residence, by = c('lng2' = 'lng2', 'lat2' = 'lat2'))
-  
+  heatscore <- mutate(score, n = n.x*n.y*n.x.x*n.y.y) %>% select(lng2, lat2, n)
+  }else if(type == 'Competitor'){
+    score <- inner_join(competition, business, by = c('lng2' = 'lng2', 'lat2' = 'lat2')) %>%
+      inner_join(traffic, by = c('lng2' = 'lng2', 'lat2' = 'lat2'))
+    heatscore <- mutate(score, n = n.x*n.y*n) %>% select(lng2, lat2, n)
+  }else if(type == 'Community'){
+    score <- inner_join(residence, traffic, by = c('lng2' = 'lng2', 'lat2' = 'lat2'))
+    heatscore <- mutate(score, n = n.x*n.y) %>% select(lng2, lat2, n)
+  }else if(type == 'Market'){
+    score <- inner_join(business, finance, by = c('lng2' = 'lng2', 'lat2' = 'lat2')) %>%
+      inner_join(traffic,  by = c('lng2' = 'lng2', 'lat2' = 'lat2'))
+    heatscore <- mutate(score, n = n.x*n.y*n) %>% select(lng2, lat2, n)
+  }else{
+    score <- inner_join(traffic, business, by = c('lng2' = 'lng2', 'lat2' = 'lat2')) %>%
+      inner_join(competition, by = c('lng2' = 'lng2', 'lat2' = 'lat2')) %>%
+      inner_join(finance, by = c('lng2' = 'lng2', 'lat2' = 'lat2')) %>%
+      inner_join(residence, by = c('lng2' = 'lng2', 'lat2' = 'lat2'))
+    heatscore <- mutate(score, n = n.x*n.y*n.x.x*n.y.y*n) %>% select(lng2, lat2, n)
+  }
   
   heattraffic <- traffic
   heatbusiness<- business
   heatcompetition <- competition
   heatfinance <- finance
   heatresidence <- residence
-  heatscore <- mutate(score, n = n.x*n.y*n.x.x*n.y.y) %>% select(lng2, lat2, n)
   
   if(!high_level){
     m_n <- mean(heatscore$n)
