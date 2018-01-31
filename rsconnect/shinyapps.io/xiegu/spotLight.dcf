@@ -5,8 +5,8 @@ account: xiegu
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 260163
-bundleId: 1192029
+bundleId: 1198925
 url: https://xiegu.shinyapps.io/spotLight/
-when: 1516866759.09605
+when: 1517304985.0819
 asMultiple: FALSE
 asStatic: FALSE

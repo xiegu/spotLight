@@ -6,7 +6,12 @@ library(scales)
 library(sp)
 
 cityCode <- list('青岛市'='370200',
-                 '焦作市'='410800'
+                 '焦作市'='410800',
+                 '信阳市' = '411500',
+                 '廊坊市' = '131000',
+                 '黄山市' ='341000',
+                 '日照市' = '371100',
+                 '合肥市' = '340100'
                  )
 
 mapInfo <- function(city){
@@ -102,7 +107,10 @@ heat_builder <- function(poi = list(), high_level = TRUE, type = c('Balance', 'C
   heatfinance <- finance
   heatresidence <- residence
   
-  if(!high_level){
+  if(nrow(heatscore) == 0){
+    heatscore$opacity <- numeric(0)
+  }
+  else if(!high_level){
     m_n <- mean(heatscore$n)
     heatscore <- filter(heatscore, n > m_n) %>%arrange(desc(n))
     heatscore$opacity <- rescale(heatscore$n, to=c(0,1))
