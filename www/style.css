@@ -53,8 +53,9 @@ transition-delay: 0;
 
 #control3 {
 /* Appearance */
-  background-color: white;
-padding: 0 20px 20px 20px;
+  background-color: transparent;
+  border-color: transparent;
+padding: 0;
 cursor: move;
 /* Fade out while not hovering */
   opacity: 0.65;
@@ -62,6 +63,40 @@ zoom: 0.9;
 transition: opacity 500ms 1s;
 }
 #control3:hover {
+/* Fade in while hovering */
+  opacity: 0.95;
+transition-delay: 0;
+}
+
+#coordinates {
+/* Appearance */
+  background-color: transparent;
+  border-color: transparent;
+padding: 0;
+cursor: move;
+/* Fade out while not hovering */
+  opacity: 0.65;
+zoom: 0.9;
+transition: opacity 500ms 1s;
+}
+#coordinates:hover {
+/* Fade in while hovering */
+  opacity: 0.95;
+transition-delay: 0;
+}
+
+#spotTable {
+/* Appearance */
+  background-color: white;
+  border-color: transparent;
+padding: 5px 5px 5px 5px;
+cursor: move;
+/* Fade out while not hovering */
+  opacity: 0.65;
+zoom: 0.9;
+transition: opacity 500ms 1s;
+}
+#spotTable:hover {
 /* Fade in while hovering */
   opacity: 0.95;
 transition-delay: 0;

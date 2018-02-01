@@ -5,6 +5,7 @@ library(dplyr)
 library(shiny)
 library(shinyWidgets)
 library(shinyjs)
+library(DT)
 
 load('data/haierTable.RData')
 
@@ -71,12 +72,25 @@ ui <- navbarPage(title = 'Spots',
                               ),
                               leafletOutput('OnDemandMap', width = '100%', height = '100%'),
                               absolutePanel(id = "control3", class = "panel panel-default",
-                                            draggable = TRUE, top = 50, left = "auto", right = "40%", bottom = "auto",
-                                            width = 250, height = "auto", cursor = "default",
-                                            h4("Spot coordinates"),
-                                            uiOutput("ClickedLocation"),
+                                            draggable = TRUE, top = 50, left = "auto", right = "45%", bottom = "auto",
+                                            width = NULL, height = "auto", cursor = "default",
                                             actionButton("Reset", "Reset", class = "btn-primary")
                                             ),
+                              useShinyjs(),
+                              hidden(
+                              absolutePanel(id = "coordinates", class = "panel panel-default",
+                                             draggable = TRUE, top = "10%", left = 120, right = "auto", bottom = "auto",
+                                             width = NULL, height = "auto", cursor = "default",
+                                             uiOutput("ClickedLocation")
+                                             )
+                              ),
+                              hidden(
+                              absolutePanel(id = 'spotTable', class = "panel panel-default",
+                                            draggable = TRUE, top = "35%", left = 10, right = "auto", bottom = "auto",
+                                            width = NULL, Height = "auto", cursor = "default",
+                                            dataTableOutput("SpotTable2")
+                                            )
+                              ),
                               absolutePanel(id = "control2", class = "panel panel-default",
                                             draggable = TRUE, top = 50, left = "auto", right = 20, bottom = "auto",
                                             width = 250, height = "auto", cursor = "default",
@@ -216,9 +230,12 @@ server <- function(input, output, session){
     if(is.null(mapClick$clicked)){
       return(NULL)
     }else{
-      wellPanel(
+      wellPanel(width = 200, 
+        h4('Spot center'),
+        p(paste(input$Province2, input$City2, input$District2, sep = '-')),
         p(paste0('Longitude: ', round(mapClick$clicked[['lng']], 4))), 
-        p(paste0('Latitude: ', round(mapClick$clicked[['lat']], 4)))
+        p(paste0('Latitude: ', round(mapClick$clicked[['lat']], 4))),
+        p(paste0('Range: ', input$LocationRange, ' m'))
       )
     }
   })
@@ -300,10 +317,66 @@ server <- function(input, output, session){
         addCircles(lng = center[1], lat = center[2], radius = range) %>%
         map_generator(dataList = heat, category = indicator, radius = scope)
     }
-      
-      #
   })
   
+  output$SpotTable2 <- renderDataTable({
+    if(input$Indicator2 == 'score' & (!is.null(mapClick$clicked))){
+      center <- c(mapClick$clicked[['lng']], mapClick$clicked[['lat']])
+      range <- input$LocationRange
+      heat <- heat2()
+      scoreTable <- heat[['score']] %>% 
+        mutate(., distance = ((lng2-center[1])*111000)^2 + ((lat2-center[2])*111000*cos(center[2]/180*pi))^2, isInCircle = ifelse(distance <=range^2, TRUE, FALSE)) %>% 
+        filter(isInCircle == TRUE) %>% select(Longitude = lng2, Latitude = lat2, Score = n) %>% arrange(desc(Score))
+      if(nrow(scoreTable) == 0){
+        return(NULL)
+      }else{
+    datatable(
+      scoreTable,
+      caption = tags$caption(style = 'color:black',
+        h4('Spot search result')
+      ),
+      extensions = 'Buttons',
+      options = list(pageLength = 10,
+                     dom = 'rtpB',
+                     buttons = c('copy', 'csv', 'print')
+                     )
+    )
+      }
+    }else{
+      return(NULL)
+    }
+  })
+  
+  observeEvent(input$Reset, {
+    hide("coordinates", anim = TRUE, time = 0.2)
+    hide("spotTable", anim = TRUE, time = 0.2)
+  })
+  
+  observeEvent(mapClick$clicked, {
+    shinyjs::show("coordinates", anim = TRUE, time = 0.2)
+    shinyjs::show("spotTable", anim = TRUE, time = 0.2)
+  })
+  
+  #hideInd <- reactiveValues(s=1)
+  #
+  # observe({
+  #   if(input$Indicator2 != 'score'){
+  #     hideInd$s <- hideInd$s + 1
+  #   }else{
+  #     hideInd$s <- hideInd$s
+  #   }
+  # })
+   
+  # observeEvent({
+  #   if(input$Indicator2 == 'score'){
+  #     hideInd$s
+  #   }else{
+  #     hideInd$s + 1
+  #   }
+  # }, 
+  # {
+  #   hide('spotTable', anim = TRUE, time = 0.2)
+  # })
   
 }
 
