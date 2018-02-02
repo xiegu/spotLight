@@ -87,7 +87,7 @@ transition-delay: 0;
 
 #spotTable {
 /* Appearance */
-  background-color: white;
+  background-color: transparent;
   border-color: transparent;
 padding: 5px 5px 5px 5px;
 cursor: move;
