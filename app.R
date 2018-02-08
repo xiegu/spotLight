@@ -358,7 +358,7 @@ server <- function(input, output, session){
       heat <- lapply(heat2(), function(x) mutate(x, distance = ((lng2-center[1])*111000)^2 + ((lat2-center[2])*111000*cos(center[2]/180*pi))^2, isInCircle = ifelse(distance <=range^2, TRUE, FALSE)) %>% 
                        filter(isInCircle == TRUE))
       leafletProxy('OnDemandMap') %>% setView(lng = center[1], lat = center[2], zoom = 14) %>% clearShapes() %>% clearHeatmap() %>% 
-        addCircles(lng = center[1], lat = center[2], radius = range) %>%
+        addCircles(lng = center[1], lat = center[2], radius = range, weight = 3) %>%
         map_generator(dataList = heat, category = indicator, radius = scope)
     }
   })
